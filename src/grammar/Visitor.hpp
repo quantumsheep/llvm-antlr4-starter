@@ -1,6 +1,7 @@
 #pragma once
 
 #include "exceptions/NotImplementedException.hpp"
+#include "exceptions/SyntaxErrorException.hpp"
 #include "runtime/FooLexer.h"
 #include "runtime/FooParserBaseVisitor.h"
 
@@ -9,12 +10,31 @@
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/Support/raw_ostream.h>
 #include <logic/Scope.hpp>
+#include <sstream>
+#include <string>
 #include <vector>
 
 using namespace antlr4;
 
 namespace FooLang
 {
+class ParserErrorListener : public BaseErrorListener
+{
+public:
+    virtual void syntaxError(
+        Recognizer *recognizer,
+        Token *offendingSymbol,
+        size_t line,
+        size_t charPositionInLine,
+        const std::string &msg,
+        std::exception_ptr e) override
+    {
+        std::stringstream s;
+        s << "Line(" << line << ":" << charPositionInLine << ") Error(" << msg << ")";
+        throw std::invalid_argument(s.str());
+    }
+};
+
 class Visitor
 {
 public:
@@ -35,10 +55,10 @@ public:
         std::ifstream stream;
         stream.open(this->path);
 
-        auto input = new ANTLRInputStream(stream);
-        auto lexer = new FooLexer(input);
-        auto tokens = new CommonTokenStream(lexer);
-        auto parser = new FooParser(tokens);
+        ANTLRInputStream input(stream);
+        FooLexer lexer(&input);
+        CommonTokenStream tokens(&lexer);
+        FooParser parser(&tokens);
 
         auto functionReturnType = llvm::Type::getInt32Ty(builder.getContext());
         auto functionType = llvm::FunctionType::get(functionReturnType, {}, false);
@@ -49,7 +69,14 @@ public:
         auto block = llvm::BasicBlock::Create(builder.getContext(), "entry", function);
         this->builder.SetInsertPoint(block);
 
-        auto alloca = this->visitDeclaration(parser->declaration());
+        auto declarationContext = parser.declaration();
+
+        if (lexer.getNumberOfSyntaxErrors() || parser.getNumberOfSyntaxErrors())
+        {
+            throw SyntaxErrorException();
+        }
+
+        auto alloca = this->visitDeclaration(declarationContext);
 
         auto load = builder.CreateLoad(alloca->getType()->getPointerElementType(), alloca);
         Helpers::printf(llvm_module, builder, "%d\n", {load});
