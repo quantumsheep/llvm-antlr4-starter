@@ -1,6 +1,7 @@
 #pragma once
 
 #include "exceptions/InvalidLeftHandAssignmentException.hpp"
+#include "exceptions/NotCallableException.hpp"
 #include "exceptions/NotImplementedException.hpp"
 #include "exceptions/SyntaxErrorException.hpp"
 #include "exceptions/TypeNotFoundException.hpp"
@@ -208,6 +209,10 @@ public:
         {
             return this->visitAffectationExpression(affectationExpressionContext);
         }
+        else if (auto functionCallExpressionContext = dynamic_cast<FooParser::FunctionCallExpressionContext *>(context))
+        {
+            return this->visitFunctionCallExpression(functionCallExpressionContext);
+        }
         else if (auto identifierExpressionContext = dynamic_cast<FooParser::IdentifierExpressionContext *>(context))
         {
             return this->visitIdentifierExpression(identifierExpressionContext);
@@ -250,6 +255,18 @@ public:
         this->builder.CreateStore(expression, alloca);
 
         return reinterpret_cast<llvm::AllocaInst *>(alloca);
+    }
+
+    llvm::Value *visitFunctionCallExpression(FooParser::FunctionCallExpressionContext *context)
+    {
+        auto expression = loadIfAlloca(this->visitExpression(context->expression()));
+
+        if (!expression->getType()->isPointerTy() && expression->getType()->getPointerElementType()->isFunctionTy())
+        {
+            throw NotCallableException(context->expression()->getText());
+        }
+
+        return this->builder.CreateCall(llvm::dyn_cast<llvm::FunctionType>(expression->getType()->getPointerElementType()), expression);
     }
 
     llvm::Value *visitIdentifierExpression(FooParser::IdentifierExpressionContext *context)

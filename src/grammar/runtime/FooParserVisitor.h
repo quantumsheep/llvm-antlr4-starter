@@ -34,6 +34,8 @@ public:
 
     virtual antlrcpp::Any visitAffectationExpression(FooParser::AffectationExpressionContext *context) = 0;
 
+    virtual antlrcpp::Any visitFunctionCallExpression(FooParser::FunctionCallExpressionContext *context) = 0;
+
     virtual antlrcpp::Any visitIdentifierExpression(FooParser::IdentifierExpressionContext *context) = 0;
 
     virtual antlrcpp::Any visitPrint(FooParser::PrintContext *context) = 0;

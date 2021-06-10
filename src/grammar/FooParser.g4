@@ -23,6 +23,7 @@ expression:
 	expression Mul expression	# MultiplicationExpression
 	| expression Add expression	# AdditionExpression
 	| expression '=' expression	# AffectationExpression
+	| expression '(' ')'		# FunctionCallExpression
 	| Name						# IdentifierExpression
 	| Number					# NumberLiteralExpression;
 

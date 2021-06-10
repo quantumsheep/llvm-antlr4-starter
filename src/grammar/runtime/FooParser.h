@@ -174,6 +174,17 @@ public:
     virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
   };
 
+  class  FunctionCallExpressionContext : public ExpressionContext {
+  public:
+    FunctionCallExpressionContext(ExpressionContext *ctx);
+
+    ExpressionContext *expression();
+    antlr4::tree::TerminalNode *LeftParen();
+    antlr4::tree::TerminalNode *RightParen();
+
+    virtual antlrcpp::Any accept(antlr4::tree::ParseTreeVisitor *visitor) override;
+  };
+
   class  IdentifierExpressionContext : public ExpressionContext {
   public:
     IdentifierExpressionContext(ExpressionContext *ctx);

@@ -48,6 +48,10 @@ public:
     return visitChildren(ctx);
   }
 
+  virtual antlrcpp::Any visitFunctionCallExpression(FooParser::FunctionCallExpressionContext *ctx) override {
+    return visitChildren(ctx);
+  }
+
   virtual antlrcpp::Any visitIdentifierExpression(FooParser::IdentifierExpressionContext *ctx) override {
     return visitChildren(ctx);
   }
