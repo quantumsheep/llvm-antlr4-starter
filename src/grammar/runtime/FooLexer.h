@@ -1,6 +1,3 @@
-
-// Generated from /Users/qtmsheep/Development/dev-day-language/src/grammar/FooLexer.g4 by ANTLR 4.9.1
-
 #pragma once
 
 
