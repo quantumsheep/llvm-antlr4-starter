@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../logic/Scope.hpp"
 #include "exceptions/SyntaxErrorException.hpp"
 #include "runtime/FooLexer.h"
 #include "runtime/FooParserBaseVisitor.h"
@@ -8,7 +9,6 @@
 
 #include <llvm/IR/IRBuilder.h>
 #include <llvm/Support/raw_ostream.h>
-#include <logic/Scope.hpp>
 #include <sstream>
 #include <string>
 #include <vector>
