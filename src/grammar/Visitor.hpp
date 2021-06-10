@@ -64,10 +64,6 @@ public:
         CommonTokenStream tokens(&lexer);
         FooParser parser(&tokens);
 
-        auto functionReturnType = llvm::Type::getInt32Ty(builder.getContext());
-        auto functionType = llvm::FunctionType::get(functionReturnType, {}, false);
-        auto functionLinkage = llvm::GlobalValue::LinkageTypes::ExternalLinkage;
-
         auto statementsContext = parser.statements();
 
         for (auto &statement : statementsContext->statement())
