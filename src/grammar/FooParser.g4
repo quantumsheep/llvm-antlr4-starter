@@ -4,9 +4,6 @@ options {
 	tokenVocab = FooLexer;
 }
 
-declaration: Let Name Equal expression;
+instructions: instruction*;
 
-expression:
-	expression Mul expression	# MultiplicationExpression
-	| expression Add expression	# AdditionExpression
-	| Number					# NumberLiteralExpression;
+instruction: ToImplement;
