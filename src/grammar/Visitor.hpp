@@ -1,7 +1,10 @@
 #pragma once
 
+#include "exceptions/InvalidLeftHandAssignmentException.hpp"
 #include "exceptions/NotImplementedException.hpp"
 #include "exceptions/SyntaxErrorException.hpp"
+#include "exceptions/TypeNotFoundException.hpp"
+#include "exceptions/VariableNotFoundException.hpp"
 #include "runtime/FooLexer.h"
 #include "runtime/FooParserBaseVisitor.h"
 
@@ -64,24 +67,117 @@ public:
         auto functionType = llvm::FunctionType::get(functionReturnType, {}, false);
         auto functionLinkage = llvm::GlobalValue::LinkageTypes::ExternalLinkage;
 
-        auto function = llvm::Function::Create(functionType, functionLinkage, "main", *this->llvm_module);
+        // auto function = llvm::Function::Create(functionType, functionLinkage, "main", *this->llvm_module);
 
-        auto block = llvm::BasicBlock::Create(builder.getContext(), "entry", function);
-        this->builder.SetInsertPoint(block);
+        // auto block = llvm::BasicBlock::Create(builder.getContext(), "entry", function);
+        // this->builder.SetInsertPoint(block);
 
-        auto declarationContext = parser.declaration();
+        auto statementsContext = parser.statements();
 
-        if (lexer.getNumberOfSyntaxErrors() || parser.getNumberOfSyntaxErrors())
+        for (auto &statement : statementsContext->statement())
         {
-            throw SyntaxErrorException();
+            if (lexer.getNumberOfSyntaxErrors() || parser.getNumberOfSyntaxErrors())
+            {
+                throw SyntaxErrorException();
+            }
+
+            this->visitStatement(statement);
         }
 
-        auto alloca = this->visitDeclaration(declarationContext);
+        // auto alloca = this->visitDeclaration(declarationContext);
 
-        auto load = builder.CreateLoad(alloca->getType()->getPointerElementType(), alloca);
-        Helpers::printf(llvm_module, builder, "%d\n", {load});
+        // auto load = builder.CreateLoad(alloca->getType()->getPointerElementType(), alloca);
+        // Helpers::printf(llvm_module, builder, "%d\n", {load});
 
-        this->builder.CreateRet(llvm::ConstantInt::get(functionReturnType, 0, true));
+        // this->builder.CreateRet(llvm::ConstantInt::get(functionReturnType, 0, true));
+    }
+
+    llvm::Value *loadIfAlloca(llvm::Value *value)
+    {
+        if (auto alloca = llvm::dyn_cast<llvm::AllocaInst>(value))
+        {
+            return this->builder.CreateLoad(alloca);
+        }
+
+        return value;
+    }
+
+    void visitStatement(FooParser::StatementContext *context)
+    {
+        if (auto functionContext = context->function())
+        {
+            this->visitFunction(functionContext);
+        }
+    }
+
+    void visitFunction(FooParser::FunctionContext *context)
+    {
+        auto functionDeclaration = this->visitFunctionDeclaration(context->functionDeclaration());
+
+        auto block = this->visitBody(context->body(), "entry", functionDeclaration);
+    }
+
+    llvm::Function *visitFunctionDeclaration(FooParser::FunctionDeclarationContext *context)
+    {
+        auto returnType = this->visitType(context->type());
+        auto name = context->Name()->getText();
+
+        auto functionType = llvm::FunctionType::get(returnType, {}, false);
+        auto functionLinkage = name == "main" ? llvm::GlobalValue::LinkageTypes::ExternalLinkage : llvm::GlobalValue::LinkageTypes::LinkOnceAnyLinkage;
+
+        auto function = llvm::Function::Create(functionType, functionLinkage, name, *llvm_module);
+
+        variables[name] = function;
+        return function;
+    }
+
+    llvm::Type *visitType(FooParser::TypeContext *context)
+    {
+        if (auto type = context->Typei32())
+        {
+            return llvm::Type::getInt32Ty(*llvm_context);
+        }
+
+        throw TypeNotFoundException(context->getText());
+    }
+
+    llvm::BasicBlock *visitBody(FooParser::BodyContext *context, const std::string &name = "", llvm::Function *function = nullptr)
+    {
+        auto block = llvm::BasicBlock::Create(*llvm_context, name);
+
+        if (function != nullptr)
+        {
+            block->insertInto(function);
+        }
+
+        this->builder.SetInsertPoint(block);
+
+        for (auto &statement : context->bodyStatement())
+        {
+            this->visitBodyStatement(statement);
+        }
+
+        return block;
+    }
+
+    void visitBodyStatement(FooParser::BodyStatementContext *context)
+    {
+        if (auto expressionContext = context->expression())
+        {
+            this->visitExpression(expressionContext);
+        }
+        else if (auto declarationContext = context->declaration())
+        {
+            this->visitDeclaration(declarationContext);
+        }
+        else if (auto printContext = context->print())
+        {
+            this->visitPrint(printContext);
+        }
+        else if (auto returnStatementContext = context->returnStatement())
+        {
+            this->visitReturnStatement(returnStatementContext);
+        }
     }
 
     llvm::AllocaInst *visitDeclaration(FooParser::DeclarationContext *context)
@@ -108,6 +204,14 @@ public:
         {
             return this->visitAdditionExpressionContext(additionExpressionContext);
         }
+        else if (auto affectationExpressionContext = dynamic_cast<FooParser::AffectationExpressionContext *>(context))
+        {
+            return this->visitAffectationExpression(affectationExpressionContext);
+        }
+        else if (auto identifierExpressionContext = dynamic_cast<FooParser::IdentifierExpressionContext *>(context))
+        {
+            return this->visitIdentifierExpression(identifierExpressionContext);
+        }
         else if (auto numberLiteralExpressionContext = dynamic_cast<FooParser::NumberLiteralExpressionContext *>(context))
         {
             return this->visitNumberLiteralExpression(numberLiteralExpressionContext);
@@ -121,7 +225,7 @@ public:
         auto left = this->visitExpression(context->expression(0));
         auto right = this->visitExpression(context->expression(1));
 
-        return this->builder.CreateMul(left, right);
+        return this->builder.CreateMul(loadIfAlloca(left), loadIfAlloca(right));
     }
 
     llvm::Value *visitAdditionExpressionContext(FooParser::AdditionExpressionContext *context)
@@ -129,7 +233,36 @@ public:
         auto left = this->visitExpression(context->expression(0));
         auto right = this->visitExpression(context->expression(1));
 
-        return this->builder.CreateAdd(left, right);
+        return this->builder.CreateAdd(loadIfAlloca(left), loadIfAlloca(right));
+    }
+
+    llvm::AllocaInst *visitAffectationExpression(FooParser::AffectationExpressionContext *context)
+    {
+        auto alloca = this->visitExpression(context->expression(0));
+
+        if (!llvm::dyn_cast<llvm::AllocaInst>(alloca))
+        {
+            throw InvalidLeftHandAssignmentException();
+        }
+
+        auto expression = loadIfAlloca(this->visitExpression(context->expression(1)));
+
+        this->builder.CreateStore(expression, alloca);
+
+        return reinterpret_cast<llvm::AllocaInst *>(alloca);
+    }
+
+    llvm::Value *visitIdentifierExpression(FooParser::IdentifierExpressionContext *context)
+    {
+        auto name = context->Name()->getText();
+        auto it = variables.find(name);
+
+        if (it == variables.end())
+        {
+            throw VariableNotFoundException(name);
+        }
+
+        return it->second;
     }
 
     llvm::Value *visitNumberLiteralExpression(FooParser::NumberLiteralExpressionContext *context)
@@ -140,6 +273,27 @@ public:
         auto type = llvm::Type::getInt64Ty(this->builder.getContext());
 
         return llvm::ConstantInt::get(type, value, true);
+    }
+
+    void visitPrint(FooParser::PrintContext *context)
+    {
+        for (auto &expressionContext : context->expression())
+        {
+            auto expression = loadIfAlloca(this->visitExpression(expressionContext));
+
+            if (expression->getType()->isIntegerTy())
+            {
+                Helpers::printf(llvm_module, builder, "%d ", {expression});
+            }
+        }
+
+        Helpers::printf(llvm_module, builder, "\n");
+    }
+
+    void visitReturnStatement(FooParser::ReturnStatementContext *context)
+    {
+        auto expression = this->visitExpression(context->expression());
+        this->builder.CreateRet(loadIfAlloca(expression));
     }
 };
 } // namespace FooLang

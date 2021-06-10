@@ -9,8 +9,10 @@
 class  FooLexer : public antlr4::Lexer {
 public:
   enum {
-    Let = 1, Add = 2, Mul = 3, Equal = 4, Name = 5, Number = 6, WhiteSpace = 7, 
-    LineTerminator = 8
+    Let = 1, Add = 2, Mul = 3, Equal = 4, Print = 5, LeftParen = 6, RightParen = 7, 
+    LeftBracket = 8, RightBracket = 9, Comma = 10, Semicolon = 11, FunctionKeyworkd = 12, 
+    FunctionTyper = 13, Typei32 = 14, Return = 15, Name = 16, Number = 17, 
+    WhiteSpace = 18, LineTerminator = 19
   };
 
   explicit FooLexer(antlr4::CharStream *input);
