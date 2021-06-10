@@ -68,11 +68,6 @@ public:
         auto functionType = llvm::FunctionType::get(functionReturnType, {}, false);
         auto functionLinkage = llvm::GlobalValue::LinkageTypes::ExternalLinkage;
 
-        // auto function = llvm::Function::Create(functionType, functionLinkage, "main", *this->llvm_module);
-
-        // auto block = llvm::BasicBlock::Create(builder.getContext(), "entry", function);
-        // this->builder.SetInsertPoint(block);
-
         auto statementsContext = parser.statements();
 
         for (auto &statement : statementsContext->statement())
@@ -84,13 +79,6 @@ public:
 
             this->visitStatement(statement);
         }
-
-        // auto alloca = this->visitDeclaration(declarationContext);
-
-        // auto load = builder.CreateLoad(alloca->getType()->getPointerElementType(), alloca);
-        // Helpers::printf(llvm_module, builder, "%d\n", {load});
-
-        // this->builder.CreateRet(llvm::ConstantInt::get(functionReturnType, 0, true));
     }
 
     llvm::Value *loadIfAlloca(llvm::Value *value)
